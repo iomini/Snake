@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Змейка</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Убираем скролл */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #a3c6a3; /* Чуть темнее фон */
+        }
+
+        canvas {
+            background-color: #a3c6a3;
+            display: block;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Устанавливаем размер канваса на весь экран
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Размер клетки, змейки и сетки
+    const gridSize = 30;
+    // Задаем начальную длину змейки в 3 клетки
+    let snake = [
+        { x: 150, y: 150 }, // голова
+        { x: 150 - gridSize, y: 150 }, // второе звено
+        { x: 150 - gridSize * 2, y: 150 } // третье звено
+    ];
+    let dx = gridSize;
+    let dy = 0;
+    let food = generateFood(); // Генерация еды в начале
+
+    // Основные цвета
+    const snakeColor = '#2e7d32'; // Темная зеленая змейка
+    const foodColor = '#ff0000';  // Красная еда
+    const gridColor = '#b0d0b0';  // Малозаметная сетка
+
+    // Функция рисования сетки
+    function drawGrid() {
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 0.5; // Малозаметная сетка
+        for (let x = 0; x < canvas.width; x += gridSize) {
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.strokeRect(x, y, gridSize, gridSize);
+            }
+        }
+    }
+
+    // Функция отрисовки змейки
+    function drawSnake() {
+        snake.forEach(part => {
+            ctx.fillStyle = snakeColor;
+            ctx.fillRect(part.x, part.y, gridSize, gridSize);
+        });
+    }
+
+    // Функция отрисовки еды
+    function drawFood() {
+        ctx.fillStyle = foodColor;
+        ctx.fillRect(food.x, food.y, gridSize, gridSize);
+    }
+
+    // Генерация случайных координат для еды
+    function generateFood() {
+        let newFood;
+        // Генерируем еду, пока она не окажется на месте, где нет змейки
+        do {
+            newFood = {
+                x: Math.floor(Math.random() * (canvas.width / gridSize)) * gridSize,
+                y: Math.floor(Math.random() * (canvas.height / gridSize)) * gridSize
+            };
+        } while (isFoodOnSnake(newFood)); // Проверяем, что еда не находится на змейке
+        return newFood;
+    }
+
+    // Проверка, находится ли еда на змейке
+    function isFoodOnSnake(foodPosition) {
+        return snake.some(part => part.x === foodPosition.x && part.y === foodPosition.y);
+    }
+
+    // Двигаем змейку
+    function moveSnake() {
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+        // Если змейка пересекает границу, перемещаем ее на противоположную сторону
+        if (head.x >= canvas.width) {
+            head.x = 0;
+        } else if (head.x < 0) {
+            head.x = canvas.width - gridSize;
+        }
+        if (head.y >= canvas.height) {
+            head.y = 0;
+        } else if (head.y < 0) {
+            head.y = canvas.height - gridSize;
+        }
+
+        snake.unshift(head);
+
+        // Проверка на съедание еды с более точным совпадением координат
+        if (Math.abs(head.x - food.x) < gridSize && Math.abs(head.y - food.y) < gridSize) {
+            // Генерируем новую еду на случайной позиции
+            food = generateFood();
+        } else {
+            snake.pop(); // Удаляем хвост, если еда не съедена
+        }
+    }
+
+    // Управление змейкой
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowUp' && dy === 0) {
+            dx = 0;
+            dy = -gridSize;
+        } else if (e.key === 'ArrowDown' && dy === 0) {
+            dx = 0;
+            dy = gridSize;
+        } else if (e.key === 'ArrowLeft' && dx === 0) {
+            dx = -gridSize;
+            dy = 0;
+        } else if (e.key === 'ArrowRight' && dx === 0) {
+            dx = gridSize;
+            dy = 0;
+        }
+    });
+
+    // Основная функция игры
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();      // Рисуем сетку
+        moveSnake();     // Двигаем змейку
+        drawSnake();     // Рисуем змейку
+        drawFood();      // Рисуем еду
+        setTimeout(gameLoop, 100); // Задержка обновления экрана
+    }
+
+    // Запуск игры
+    gameLoop();
+</script>
+</body>
+</html>

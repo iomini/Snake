@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Шахматы</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            gap: 2px;
+            position: relative;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .white {
+            background-color: #f9f9f9;
+        }
+
+        .black {
+            background-color: #d3d3d3;
+        }
+
+        .highlight {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: rgba(0, 255, 0, 0.5);
+            pointer-events: none;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div id="board"></div>
+        <button onclick="resetGame()">Начать заново</button>
+    </div>
+
+    <script>
+        const boardElement = document.getElementById('board');
+        let board = [];
+        const empty = '';
+        const pieces = {
+            white: {
+                king: '♔',
+                queen: '♕',
+                rook: '♖',
+                bishop: '♗',
+                knight: '♘',
+                pawn: '♙'
+            },
+            black: {
+                king: '♚',
+                queen: '♛',
+                rook: '♜',
+                bishop: '♝',
+                knight: '♞',
+                pawn: '♟'
+            }
+        };
+        let selectedPiece = null;
+        let currentPlayer = 'white';
+
+        function initBoard() {
+            board = Array(8).fill(null).map(() => Array(8).fill(empty));
+
+            // Устанавливаем белые фигуры
+            board[0] = [
+                pieces.black.rook, pieces.black.knight, pieces.black.bishop, pieces.black.queen,
+                pieces.black.king, pieces.black.bishop, pieces.black.knight, pieces.black.rook
+            ];
+            board[1] = Array(8).fill(pieces.black.pawn);
+
+            // Устанавливаем черные фигуры
+            board[7] = [
+                pieces.white.rook, pieces.white.knight, pieces.white.bishop, pieces.white.queen,
+                pieces.white.king, pieces.white.bishop, pieces.white.knight, pieces.white.rook
+            ];
+            board[6] = Array(8).fill(pieces.white.pawn);
+        }
+
+        function renderBoard() {
+            boardElement.innerHTML = '';
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell', (row + col) % 2 === 0 ? 'white' : 'black');
+                    cell.textContent = board[row][col];
+                    cell.addEventListener('click', () => handleClick(row, col));
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleClick(row, col) {
+            const piece = board[row][col];
+
+            if (selectedPiece) {
+                // Проверка на возможность хода
+                if (canMove(selectedPiece.row, selectedPiece.col, row, col)) {
+                    board[row][col] = board[selectedPiece.row][selectedPiece.col];
+                    board[selectedPiece.row][selectedPiece.col] = empty;
+
+                    // Проверка превращения пешки в ферзя
+                    if (currentPlayer === 'white' && row === 0 && board[row][col] === pieces.white.pawn) {
+                        board[row][col] = pieces.white.queen;
+                    } else if (currentPlayer === 'black' && row === 7 && board[row][col] === pieces.black.pawn) {
+                        board[row][col] = pieces.black.queen;
+                    }
+
+                    if (isCheckmate()) {
+                        alert(`${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} ставит мат! Игра начинается заново.`);
+                        resetGame();
+                    } else {
+                        switchPlayer();
+                    }
+                }
+
+                selectedPiece = null;
+                saveGame();
+                renderBoard();
+            } else if (piece && ((currentPlayer === 'white' && isWhitePiece(piece)) || (currentPlayer === 'black' && isBlackPiece(piece)))) {
+                selectedPiece = { row, col };
+                highlightMoves(selectedPiece.row, selectedPiece.col);
+            }
+        }
+
+        function isWhitePiece(piece) {
+            return Object.values(pieces.white).includes(piece);
+        }
+
+        function isBlackPiece(piece) {
+            return Object.values(pieces.black).includes(piece);
+        }
+
+        function canMove(fromRow, fromCol, toRow, toCol) {
+            const piece = board[fromRow][fromCol];
+            const targetPiece = board[toRow][toCol];
+
+            // Проверка, что на целевой клетке нет союзной фигуры
+            if (targetPiece !== empty && ((currentPlayer === 'white' && isWhitePiece(targetPiece)) || (currentPlayer === 'black' && isBlackPiece(targetPiece)))) {
+                return false;
+            }
+
+            if (piece === pieces.white.pawn || piece === pieces.black.pawn) {
+                return canMovePawn(fromRow, fromCol, toRow, toCol);
+            } else if (piece === pieces.white.rook || piece === pieces.black.rook) {
+                return canMoveRook(fromRow, fromCol, toRow, toCol);
+            } else if (piece === pieces.white.bishop || piece === pieces.black.bishop) {
+                return canMoveBishop(fromRow, fromCol, toRow, toCol);
+            } else if (piece === pieces.white.queen || piece === pieces.black.queen) {
+                return canMoveQueen(fromRow, fromCol, toRow, toCol);
+            } else if (piece === pieces.white.knight || piece === pieces.black.knight) {
+                return canMoveKnight(fromRow, fromCol, toRow, toCol);
+            } else if (piece === pieces.white.king || piece === pieces.black.king) {
+                return canMoveKing(fromRow, fromCol, toRow, toCol);
+            }
+
+            return false;
+        }
+
+        function highlightMoves(row, col) {
+            clearHighlights();
+
+            const piece = board[row][col];
+            const possibleMoves = getPossibleMoves(row, col);
+
+            possibleMoves.forEach(([r, c]) => {
+                const cell = boardElement.children[r * 8 + c];
+                const highlight = document.createElement('div');
+                highlight.classList.add('highlight');
+                cell.appendChild(highlight);
+            });
+        }
+
+        function clearHighlights() {
+            const highlights = document.querySelectorAll('.highlight');
+            highlights.forEach(highlight => highlight.remove());
+        }
+
+        function getPossibleMoves(row, col) {
+            const moves = [];
+            const piece = board[row][col];
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (canMove(row, col, r, c)) {
+                        moves.push([r, c]);
+                    }
+                }
+            }
+
+            return moves;
+        }
+
+        function canMovePawn(fromRow, fromCol, toRow, toCol) {
+            const piece = board[fromRow][fromCol];
+            const targetPiece = board[toRow][toCol];
+
+            if (piece === pieces.white.pawn) {
+                if (toCol === fromCol && targetPiece === empty) {
+                    if (fromRow - toRow === 1) return true;
+                    if (fromRow === 6 && fromRow - toRow === 2 && board[fromRow - 1][fromCol] === empty) return true;
+                } else if (Math.abs(fromCol - toCol) === 1 && fromRow - toRow === 1 && isBlackPiece(targetPiece)) {
+                    return true;
+                }
+            } else if (piece === pieces.black.pawn) {
+                if (toCol === fromCol && targetPiece === empty) {
+                    if (toRow - fromRow === 1) return true;
+                    if (fromRow === 1 && toRow - fromRow === 2 && board[fromRow + 1][fromCol] === empty) return true;
+                } else if (Math.abs(fromCol - toCol) === 1 && toRow - fromRow === 1 && isWhitePiece(targetPiece)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function canMoveRook(fromRow, fromCol, toRow, toCol) {
+            if (fromRow !== toRow && fromCol !== toCol) return false;
+
+            const rowStep = fromRow === toRow ? 0 : (toRow > fromRow ? 1 : -1);
+            const colStep = fromCol === toCol ? 0 : (toCol > fromCol ? 1 : -1);
+            let row = fromRow + rowStep;
+            let col = fromCol + colStep;
+
+            while (row !== toRow || col !== toCol) {
+                if (board[row][col] !== empty) return false;
+                row += rowStep;
+                col += colStep;
+            }
+
+            return true;
+        }
+
+        function canMoveBishop(fromRow, fromCol, toRow, toCol) {
+            if (Math.abs(fromRow - toRow) !== Math.abs(fromCol - toCol)) return false;
+
+            const rowStep = fromRow < toRow ? 1 : -1;
+            const colStep = fromCol < toCol ? 1 : -1;
+            let row = fromRow + rowStep;
+            let col = fromCol + colStep;
+
+            while (row !== toRow && col !== toCol) {
+                if (board[row][col] !== empty) return false;
+                row += rowStep;
+                col += colStep;
+            }
+
+            return true;
+        }
+
+        function canMoveQueen(fromRow, fromCol, toRow, toCol) {
+            return canMoveRook(fromRow, fromCol, toRow, toCol) || canMoveBishop(fromRow, fromCol, toRow, toCol);
+        }
+
+        function canMoveKnight(fromRow, fromCol, toRow, toCol) {
+            const rowDiff = Math.abs(fromRow - toRow);
+            const colDiff = Math.abs(fromCol - toCol);
+
+            return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+        }
+
+        function canMoveKing(fromRow, fromCol, toRow, toCol) {
+            return Math.abs(fromRow - toRow) <= 1 && Math.abs(fromCol - toCol) <= 1;
+        }
+
+        function isInCheck(player) {
+            const kingPosition = findKing(player);
+            if (!kingPosition) return false;
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = board[row][col];
+                    if (piece !== empty && (isWhitePiece(piece) !== (player === 'white'))) {
+                        if (canMove(row, col, kingPosition.row, kingPosition.col)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        function findKing(player) {
+            const kingSymbol = player === 'white' ? pieces.white.king : pieces.black.king;
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    if (board[row][col] === kingSymbol) {
+                        return { row, col };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function isCheckmate() {
+            if (!isInCheck(currentPlayer)) return false;
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = board[row][col];
+                    if (piece !== empty && (isWhitePiece(piece) === (currentPlayer === 'white'))) {
+                        const possibleMoves = getPossibleMoves(row, col);
+                        if (possibleMoves.length > 0) {
+                            return false; // Есть доступные ходы, значит не мат
+                        }
+                    }
+                }
+            }
+
+            return true; // Нет доступных ходов, значит мат
+        }
+
+        function switchPlayer() {
+            currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+        }
+
+        function saveGame() {
+            localStorage.setItem('chessBoard', JSON.stringify(board));
+            localStorage.setItem('currentPlayer', currentPlayer);
+        }
+
+        function loadGame() {
+            const savedBoard = localStorage.getItem('chessBoard');
+            const savedPlayer = localStorage.getItem('currentPlayer');
+            if (savedBoard && savedPlayer) {
+                board = JSON.parse(savedBoard);
+                currentPlayer = savedPlayer;
+                renderBoard();
+            } else {
+                initBoard();
+                renderBoard();
+            }
+        }
+
+        function resetGame() {
+            localStorage.removeItem('chessBoard');
+            localStorage.removeItem('currentPlayer');
+            initBoard();
+            currentPlayer = 'white'; // Всегда начинаем с белых
+            renderBoard();
+        }
+
+        loadGame();
+    </script>
+</body>
+</html>

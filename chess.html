@@ -43,8 +43,8 @@
 
         .highlight {
             position: absolute;
-            width: 60px;
-            height: 60px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             background-color: rgba(0, 255, 0, 0.5);
             pointer-events: none;
@@ -133,6 +133,14 @@
             if (selectedPiece) {
                 // Проверка на возможность хода
                 if (canMove(selectedPiece.row, selectedPiece.col, row, col)) {
+                    // Проверка на "съедение" короля
+                    if (board[row][col] === pieces.white.king || board[row][col] === pieces.black.king) {
+                        board[row][col] = empty; // Удаляем короля
+                        alert(`${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} выигрывает! Игра заканчивается.`);
+                        resetGame();
+                        return; // Завершаем ход
+                    }
+
                     board[row][col] = board[selectedPiece.row][selectedPiece.col];
                     board[selectedPiece.row][selectedPiece.col] = empty;
 
@@ -152,7 +160,6 @@
                 }
 
                 selectedPiece = null;
-                saveGame();
                 renderBoard();
             } else if (piece && ((currentPlayer === 'white' && isWhitePiece(piece)) || (currentPlayer === 'black' && isBlackPiece(piece)))) {
                 selectedPiece = { row, col };
